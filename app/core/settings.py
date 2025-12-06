@@ -35,7 +35,11 @@ INSTALLED_APPS = [
 ]
 
 if DEBUG:
-    INSTALLED_APPS += ['django_browser_reload']
+    INSTALLED_APPS += [
+        'django_watchfiles',
+        'django_browser_reload',
+        'debug_toolbar',
+    ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -50,6 +54,7 @@ MIDDLEWARE = [
 if DEBUG:
     MIDDLEWARE += [
         'django_browser_reload.middleware.BrowserReloadMiddleware',
+        'debug_toolbar.middleware.DebugToolbarMiddleware',
     ]
 
 ROOT_URLCONF = 'core.urls'
@@ -133,3 +138,12 @@ STATICFILES_DIRS = [
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# Debug Toolbar settings
+
+DEBUG_TOOLBAR_CONFIG = {
+    'SHOW_TOOLBAR_CALLBACK': lambda _: DEBUG,
+    'SHOW_TEMPLATE_CONTEXT': True,
+    'ENABLE_STACKTRACES': True,
+}
