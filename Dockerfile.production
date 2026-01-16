@@ -8,31 +8,46 @@ COPY ./app ./app
 RUN npm install --silent
 RUN npm run build
 
-FROM ghcr.io/astral-sh/uv:python3.13-alpine
+FROM ghcr.io/astral-sh/uv:python3.13-alpine AS build
 
-ENV UV_COMPILE_BYTECODE=1 \
+ENV PYTHONUNBUFFERED=1 \
+    UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_PYTHON_DOWNLOADS=0 \
-    PYTHONUNBUFFERED=1
+    UV_CACHE_DIR=/tmp/uv-cache
 
 WORKDIR /app
 
-COPY ./app ./
-COPY ./entrypoint.sh /entrypoint.sh
 COPY pyproject.toml uv.lock ./
 
+RUN uv venv /app/.venv \
+ && uv sync --frozen --no-group dev \
+ && rm -rf /tmp/uv-cache
+
+COPY ./app ./app
+
+FROM python:3.13-alpine AS runtime
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/app/.venv/bin:$PATH"
+
+WORKDIR /app
+
+RUN apk add --no-cache \
+      libstdc++ \
+      netcat-openbsd \
+      su-exec \
+ && addgroup -S -g 1000 appgroup \
+ && adduser -S -D -H -u 1000 -G appgroup -h /app appuser
+
+COPY --from=build /app/.venv /app/.venv
+COPY --from=build /app/app/ /app/
 COPY --from=tailwind-builder /build/app/static/css/tailwind.css ./app/static/css/tailwind.css
+COPY ./entrypoint.sh /entrypoint.sh
 
-RUN uv sync --frozen --no-group dev
-
-RUN addgroup -S appgroup \
-    && adduser -S appuser -G appgroup -h /app \
-    && chown -R appuser:appgroup /app /entrypoint.sh \
-    && chmod +x /entrypoint.sh \
-    && chmod -R o-rwx /app
+RUN mkdir -p /app/.cache /app/staticfiles \
+ && chmod +x /entrypoint.sh
 
 EXPOSE 8000
-
-USER appuser
-
 ENTRYPOINT ["/entrypoint.sh"]
